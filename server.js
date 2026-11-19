@@ -17,7 +17,7 @@ const qs=[
 const colors=['red','blue','green','yellow'];const rooms=new Map();function code(){return crypto.randomBytes(3).toString('hex').toUpperCase()};function clean(s,max=24){return String(s||'').trim().replace(/[<>]/g,'').slice(0,max)}
 function state(r,teacher=false){return {code:r.code,phase:r.phase,index:r.index,total:qs.length,round:Math.min(3,Math.floor(Math.max(r.index,0)/4)+1),deadline:r.deadline,teams:colors.map(c=>({color:c,players:[...r.players.values()].filter(p=>p.team===c).map(p=>({name:p.name,score:p.score,answered:r.answers.has(p.id)})),score:[...r.players.values()].filter(p=>p.team===c).reduce((s,p)=>s+p.score,0)})),question:r.index>=0?{id:r.index,text:qs[r.index].text,options:qs[r.index].options}:null,reveal:r.phase==='reveal'?{correct:qs[r.index].correct,why:qs[r.index].why}:null,teacher};}
 function broadcast(r){io.to(r.code).emit('state',state(r));}
-function advance(r){clearTimeout(r.timer);if(r.index>=qs.length-1){r.phase='done';r.deadline=null;}else{r.index++;r.phase='question';r.answers=new Set();r.deadline=Date.now()+30000;r.timer=setTimeout(()=>reveal(r),30000)}broadcast(r)}
+function advance(r){clearTimeout(r.timer);if(r.index>=qs.length-1){r.phase='done';r.deadline=null;}else{r.index++;r.phase='question';r.answers=new Set();r.deadline=Date.now()+10000;r.timer=setTimeout(()=>reveal(r),30000)}broadcast(r)}
 
 function reveal(r){
   if(r.phase!=='question')return;
