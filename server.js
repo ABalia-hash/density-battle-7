@@ -18,8 +18,15 @@ const colors=['red','blue','green','yellow'];const rooms=new Map();function code
 function state(r,teacher=false){return {code:r.code,phase:r.phase,index:r.index,total:qs.length,round:Math.min(3,Math.floor(Math.max(r.index,0)/4)+1),deadline:r.deadline,teams:colors.map(c=>({color:c,players:[...r.players.values()].filter(p=>p.team===c).map(p=>({name:p.name,score:p.score,answered:r.answers.has(p.id)})),score:[...r.players.values()].filter(p=>p.team===c).reduce((s,p)=>s+p.score,0)})),question:r.index>=0?{id:r.index,text:qs[r.index].text,options:qs[r.index].options}:null,reveal:r.phase==='reveal'?{correct:qs[r.index].correct,why:qs[r.index].why}:null,teacher};}
 function broadcast(r){io.to(r.code).emit('state',state(r));}
 function advance(r){clearTimeout(r.timer);if(r.index>=qs.length-1){r.phase='done';r.deadline=null;}else{r.index++;r.phase='question';r.answers=new Set();r.deadline=Date.now()+30000;r.timer=setTimeout(()=>reveal(r),30000)}broadcast(r)}
-function reveal(r){if(r.phase!=='question')return;clearTimeout(r.timer);r.phase='reveal';r.deadline=null;broadcast(r)}
-io.on('connection',s=>{
+
+function reveal(r){
+  if(r.phase!=='question')return;
+  clearTimeout(r.timer);
+  r.phase='reveal';
+  r.deadline=null;
+  broadcast(r);
+  r.timer=setTimeout(()=>advance(r),5000);
+}
  s.on('create',(_,cb)=>{let c=code();while(rooms.has(c))c=code();const token=crypto.randomBytes(24).toString('hex');const r={code:c,token,players:new Map(),phase:'lobby',index:-1,answers:new Set(),deadline:null,timer:null};rooms.set(c,r);s.join(c);s.data={code:c,teacher:true};cb({ok:true,code:c,token,state:state(r,true)});});
  s.on('teacherJoin',({code:c,token},cb)=>{const r=rooms.get(clean(c,8).toUpperCase());if(!r||r.token!==token)return cb({error:'Комната или ключ учителя неверны'});s.join(r.code);s.data={code:r.code,teacher:true};cb({ok:true,state:state(r,true)});});
  s.on('join',({code:c,name,team,playerId},cb)=>{const r=rooms.get(clean(c,8).toUpperCase()),n=clean(name);if(!r)return cb({error:'Комната не найдена'});if(!n||!colors.includes(team))return cb({error:'Введите имя и выберите команду'});if(r.phase!=='lobby'&&!r.players.has(playerId))return cb({error:'Игра уже началась'});let p=r.players.get(playerId);if(!p){if([...r.players.values()].filter(p=>p.team===team).length>=7)return cb({error:'В команде уже 7 участников'});if([...r.players.values()].some(p=>p.team===team&&p.name.toLowerCase()===n.toLowerCase()))return cb({error:'Это имя уже занято в команде'});playerId=crypto.randomUUID();p={id:playerId,name:n,team,score:0};r.players.set(playerId,p)}s.join(r.code);s.data={code:r.code,playerId};cb({ok:true,playerId,state:state(r)});broadcast(r)});
